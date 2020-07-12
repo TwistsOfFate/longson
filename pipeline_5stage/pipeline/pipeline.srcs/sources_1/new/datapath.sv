@@ -151,7 +151,7 @@ flopenr   #(32) r1D(
     .reset     (resetn)    ,
     .en        (~d_stall)  ,
     .val_before(f_pcplus4) ,
-    .val_after (d_pcplus4) , 
+    .val_after (d_pcplus4) 
 ) ;
 
 flopenr   #(32) r2D(
@@ -159,7 +159,7 @@ flopenr   #(32) r2D(
     .reset     (resetn)    ,
     .en        (~d_stall)  ,
     .val_before(f_instr)   ,
-    .val_after (d_instr)   , 
+    .val_after (d_instr)    
 ) ;
 
 flopr    #(32) r3D(
