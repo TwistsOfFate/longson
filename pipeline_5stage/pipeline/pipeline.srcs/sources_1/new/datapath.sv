@@ -74,7 +74,8 @@ logic [31:0] d_signimm, d_signimmsh ;
 logic [ 4:0] d_rs, d_rt, d_rd, d_sa ;
 logic [ 4:0] e_rs, e_rt, e_rd, e_sa ;
 logic [ 5:0] e_op, e_funct ;
-
+logic        f_isindelayslot, d_isindelayslot, e_isindelayslot, m_isindelayslot ;
+logic [31:0] delayslot_addr ;
 
 //---------------------------branchcompare---------------------------------------    
 eqcmp   cmpeq(
@@ -118,6 +119,15 @@ mux2 #(32) pcbrmux(
     .mux2_sel   (d_pcsrc)       ,
     .mux2_result(pcnextbr)      
 ) ;//next pc
+
+setdelayslot setds(
+    .clk           (clk)            ,
+    .resetn        (resetn)         ,
+    .en            (d_isbranch)     ,
+    .addr          (d_pcplus4)      ,
+    .delayslot_sig (f_isindelayslot), // Because this edition has no bpb, so the next pc must be the previous pc+4, if we add bpb, we must make some changes
+    .delayslot_addr(delayslot_addr) 
+) ;
 
 
 //---------------------------------------------------------------------------
