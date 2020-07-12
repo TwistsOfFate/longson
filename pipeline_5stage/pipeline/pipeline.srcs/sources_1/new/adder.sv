@@ -1,28 +1,6 @@
-`timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 07/11/2020 04:57:17 PM
-// Design Name: 
-// Module Name: adder
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
-
 module adder(
-    input logic [31:0] a, b ,
-    output logic [31:0] y 
+    input logic [31:0] add_valA, add_valB ,
+    output logic [31:0] add_result 
     );
-    assign y = a + b ; 
+    assign add_result = add_valA + add_valB ; 
 endmodule

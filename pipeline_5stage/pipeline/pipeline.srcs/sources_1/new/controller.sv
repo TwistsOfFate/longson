@@ -1,25 +1,3 @@
-`timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 07/10/2020 10:42:59 AM
-// Design Name: 
-// Module Name: controller
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
-
 module controller(
     
      input  logic       clk               , 
@@ -78,7 +56,7 @@ logic [22:0] controls  ;
 
 logic [ 7:0] branch ;
 
-logic d_writer31, e_writer31, m_writer31 ;
+logic        d_writer31, e_writer31, m_writer31 ;
 
 assign {d_memtoreg, d_regwrite, d_regdst, d_memwrite, d_isbranch, d_branch, d_jump, d_alu_func, d_sft_func, d_imm_sign, d_mul_sign, d_div_sign, d_intovf_en, d_out_sel, d_alu_srcb_sel_rt, d_sft_srcb_sel_rs, d_writer31} = controls ;
 
