@@ -52,16 +52,16 @@ logic        w_regwrite        ;
 //--------------------------------------------------------------------------
 logic        d_pcsrc           ;
 //--------------------------------------------------------------------------
-logic        e_regdst          ;
+logic [ 1:0] e_regdst          ;
 //--------------------------------------------------------------------------
-logic        m_memwrite        ;    
+logic        m_memreq          ;   
+logic        m_memwr           ; 
 //--------------------------------------------------------------------------
 logic        d_isbranch        ;
 logic [ 2:0] d_branch          ; // 000-111 stands for 8 kinds of branches 
 //--------------------------------------------------------------------------
 logic        d_isjump          ;
 logic [ 1:0] d_jump            ;   // 00 stands for not jump , 01,10 stands for j,jal. jr has its own signal
-logic        d_jr              ;
 //--------------------------------------------------------------------------
 logic [ 2:0] e_alu_func        ;
 logic [ 1:0] e_sft_func        ;// these signals tells the alu the kind of the instr
@@ -71,10 +71,16 @@ logic        e_mul_sign        ;
 logic        e_div_sign        ;
 //--------------------------------------------------------------------------
 logic        e_intovf_en       ;
-logic        e_out_sel         ;
+logic [ 1:0] e_out_sel         ;
 //--------------------------------------------------------------------------
 logic        e_alu_srcb_sel_rt ;
 logic        e_sft_srcb_sel_rs ;
+//--------------------------------------------------------------------------
+logic        m_link            ;
+logic        m_reserved_instr  ;
+logic        m_break           ;
+logic        m_syscall         ;
+logic        m_rdata_sign      ;  
 //--------------------------------------------------------------------------
 logic [31:0] next_pc           ;  //related to SRAM
 logic        insert_stall      ;    //related to SRAM
@@ -83,7 +89,10 @@ logic        d_equal           ;
 logic        d_g0              ;
 logic        d_e0              ;
 //--------------------------------------------------------------------------
-logic        w_writer31        ;
+logic [31:0] debug_wb_pc       ;
+logic        debug_wb_rf_wen   ;
+logic [ 4:0] debug_wb_rf_wnum  ;
+logic [31:0] debug_wb_rf_wdata ;
 
 
 
@@ -111,7 +120,8 @@ controller ctrl(
     .d_pcsrc            (d_pcsrc)           ,
     .e_regdst           (e_regdst)          ,
     
-    .m_memwrite         (m_memwrite)        ,
+    .m_memreq           (m_memreq)          ,
+    .m_memwr            (m_memwr)           ,
     
     .d_isbranch         (d_isbranch)        ,
     .d_branch           (d_branch)          ,
@@ -132,9 +142,11 @@ controller ctrl(
     .e_alu_srcb_sel_rt  (e_alu_srcb_sel_rt) ,
     .e_sft_srcb_sel_rs  (e_sft_srcb_sel_rs) ,
     
-    .w_writer31         (w_writer31)        
-    
-    
+    .d_link             (m_link)            ,
+    .m_reserved_instr   (m_reserved_instr)  ,
+    .m_break            (m_break)           ,
+    .m_syscall          (m_syscall)         ,
+    .m_rdata_sign       (m_rdata_sign)     
 );
     
 datapath dp(
@@ -175,11 +187,11 @@ datapath dp(
     .e_alu_srcb_sel_rt  (e_alu_srcb_sel_rt) ,
     .e_sft_srcb_sel_rs  (e_sft_srcb_sel_rs) ,
     
-    .w_writer31         (w_writer31)        ,
-    
-    .m_readdata         (data_rdata)        ,
-    .m_aluout           (data_addr)         ,
-    .m_writedata        (data_wdata)        ,
+    .m_link             (m_link)            ,
+    .m_reserved_instr   (m_reserved_instr)  ,
+    .m_break            (m_break)           ,
+    .m_syscall          (m_syscall)         ,
+    .m_rdata_sign       (m_rdata_sign)      ,
     
     .d_op               (d_op)              ,
     .d_funct            (d_funct)           ,
@@ -191,7 +203,12 @@ datapath dp(
     
     .d_equal            (d_equal)           ,
     .d_g0               (d_g0)              ,
-    .d_e0               (d_e0)                        
+    .d_e0               (d_e0)              ,
+
+    .debug_wb_pc        (debug_wb_pc)       ,
+    .debug_wb_rf_wen    (debug_wb_rf_wen)   ,
+    .debug_wb_rf_wnum   (debug_wb_rf_wnum)  ,
+    .debug_wb_rf_wdata  (debug_wb_rf_wdata)                  
  
 ); 
 

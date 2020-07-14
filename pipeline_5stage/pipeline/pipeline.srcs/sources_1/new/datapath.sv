@@ -19,7 +19,10 @@ module datapath(
     input  logic          w_regwrite        ,
     
     input  logic          d_pcsrc           ,
-    input  logic          e_regdst          ,
+    input  logic [ 1:0]   e_regdst          ,
+
+    input  logic          m_memreq          , 
+    input  logic          m_memwr           ,
    
     // tell what the instr is
     input  logic          d_isbranch        ,
@@ -36,18 +39,16 @@ module datapath(
     input  logic          e_div_sign        ,
     
     input  logic          e_intovf_en       ,
-    input  logic          e_out_sel         ,
+    input  logic [ 1:0]   e_out_sel         ,
     
     input  logic          e_alu_srcb_sel_rt ,
     input  logic          e_sft_srcb_sel_rs ,
     
-    input  logic          w_writer31        ,
-    
-    
-    // interact with dmem
-    input  logic [31:0]   m_readdata        ,      // read data from mem
-    output logic [31:0]   m_aluout          ,      // write data to this addr
-    output logic [31:0]   m_writedata       ,      // write data to mem
+    input  logic          m_link            , // +8
+    input  logic          m_reserved_instr  ,
+    input  logic          m_break           ,
+    input  logic          m_syscall         ,
+    input  logic          m_rdata_sign      ,            
     
     // give the controller the inf of instr 
     output logic [ 5:0]   d_op              , 
@@ -63,7 +64,13 @@ module datapath(
     //compare num
     output logic          d_equal           ,
     output logic          d_g0              ,
-    output logic          d_e0                   
+    output logic          d_e0              ,
+
+    output logic [31:0]   debug_wb_pc       ,
+    output logic          debug_wb_rf_wen   ,
+    output logic [ 4:0]   debug_wb_rf_wnum  ,
+    output logic [31:0]   debug_wb_rf_wdata 
+
     
     );
 
@@ -76,16 +83,78 @@ logic [ 4:0] e_rs, e_rt, e_rd, e_sa ;
 logic [ 5:0] e_op, e_funct ;
 logic        f_isindelayslot, d_isindelayslot, e_isindelayslot, m_isindelayslot ;
 logic [31:0] delayslot_addr ;
+logic [ 4:0] m_writereg, w_writereg ; 
+logic [ 1:0] d_forwarda, d_forwardb ;
+logic [ 1:0] e_forwarda, e_forwardb ;
+logic        f_stall, d_stall, e_flush ;
+logic [31:0] d_rsdata, d_rtdata ;
+logic [31:0] e_rsdata, e_rtdata ;
+logic [31:0] d_for_rsdata, d_for_rtdata ;
+logic [31:0] e_for_rsdata, e_for_rtdata ;
+logic [31:0] e_ex_out, m_ex_out, w_ex_out ;
+logic [31:0] w_reg_wdata ;
+logic [31:0] w_memreg_out ;
+logic f_addr_err_if, d_addr_err_if ;
+logic f_stall_tmp ;
+
+assign f_stall = f_stall_tmp || insert_stall ;
+
+//---------------------------hazardmodule---------------------------------------
+hazard hz(
+    .d_rs(d_rs),
+    .d_rt(d_rt),
+    .e_rs(e_rs),
+    .e_rt(e_rt),
+
+    .e_writereg(e_writereg),
+    .m_writereg(m_writereg),
+    .w_writereg(w_writereg),
+
+    .e_regwrite(e_regwrite),
+    .m_regwrite(m_regwrite),
+    .w_regwrite(w_regwrite),
+
+    .e_memtoreg(e_memtoreg),
+    .m_memtoreg(m_memtoreg),
+
+    .d_isbranch(d_isbranch),
+
+    .d_forwarda(d_forwarda),
+    .d_forwardb(d_forwardb),
+
+    .e_forwarda(e_forwarda),
+    .e_forwardb(e_forwardb),
+
+    .f_stall(f_stall_tmp),
+    .d_stall(d_stall),
+    .e_flush(e_flush)
+
+
+);
+
+
+regfile rf(
+    .clk           (clk)         ,
+    .reset         (resetn)      ,
+    .regwrite_en   (regwriteW)   ,
+    .regwrite_addr (writeregW)   ,
+    .regwrite_data (w_reg_wdata) ,
+    .rs_addr       (d_rs)        ,
+    .rt_addr       (d_rt)        ,
+    .rs_data       (d_rsdata)    ,
+    .rt_data       (d_rtdata)
+);
+
 
 //---------------------------branchcompare---------------------------------------    
 eqcmp   cmpeq(
-    .a  (/*rs after forward*/)  ,
-    .b  (/*rt after forward*/)  ,
+    .a  (d_for_rsdata)  ,
+    .b  (d_for_rtdata)  ,
     .eq (d_equal)    
 );
 
 Compare cmp0(
-    .valA    (/*rs*/) ,
+    .valA    (d_for_rsdata) ,
     .greater (d_g0)   ,
     .equal   (d_e0) 
 );
@@ -134,18 +203,69 @@ setdelayslot setds(
 
 //use w_writer31 as a signal to regfile to write the data
 
-mux2 #(32) pcmux(
+mux2 #(32) pcjmux(
     .mux2_valA  (pcnextbr)                                ,
     .mux2_valB  ({f_pcplus4[31:28],d_instr[25:0],2'b00})  ,
     .mux2_sel   (~d_jump[0])                              ,
     .mux2_result(pcnextjpc)
 ) ;
-mux2 #(32) pcmux(
+
+mux2 #(32) pcjrmux(
     .mux2_valA  (pcnextjpc) ,
-    .mux2_valB  (/*forward_result*/) ,
+    .mux2_valB  (d_for_rsdata) ,
     .mux2_sel   (d_jump[0]) ,
     .mux2_result(pcnextjr)  ,
 ) ;
+
+mux3 #(5)  wrmux(
+    .mux3_valA  (e_rt)        ,
+    .mux3_valB  (e_rd)        ,
+    .mux3_valC  (5'd31)       ,
+    .mux3_sel   (e_regdst)    ,
+    .mux3_result(e_writereg)    
+) ;
+
+//---------------------------forward---------------------------------------    
+mux2 #(32) resmux(
+    .mux2_valA   (w_ex_out)     ,
+    .mux2_valB   (w_rdata_out)  ,
+    .mux2_sel    (w_memtoreg)   ,
+    .mux2_result (w_memreg_out)
+) ;
+
+mux3 #(32) d_forwardrsmux(
+    .mux3_valA   (d_rsdata)     ,
+    .mux3_valB   (w_memreg_out)  ,
+    .mux3_valC   (m_ex_out)     ,
+    .mux3_sel    (d_forwarda)   ,
+    .mux3_result (d_for_rsdata) 
+) ;
+
+mux3 #(32) d_forwardrtmux(
+    .mux3_valA   (d_rtdata)     ,
+    .mux3_valB   (w_memreg_out)  ,
+    .mux3_valC   (m_ex_out)     ,
+    .mux3_sel    (d_forwardb)   ,
+    .mux3_result (d_for_rtdata) 
+) ;
+
+mux3 #(32) e_forwardrsmux(
+    .mux3_valA   (e_rsdata)     ,
+    .mux3_valB   (w_memreg_out)  ,
+    .mux3_valC   (m_ex_out)     ,
+    .mux3_sel    (e_forwarda)   ,
+    .mux3_result (e_for_rsdata)
+) ;
+
+mux3 #(32) e_forwardrtmux(
+    .mux3_valA  (e_rtdata)      ,
+    .mux3_valB  (w_memreg_out)   ,
+    .mux3_valC  (m_ex_out)      ,
+    .mux3_sel   (e_forwarda)    ,
+    .mux3_result(e_for_rtdata)
+) ;
+
+
 
 
 // jump 
@@ -181,16 +301,12 @@ flopr    #(32) r3D(
 
 
 
+
+
 //forward 
 
 
-// always @(*)
-// begin
-//     if(f_pc[1:0] != 2'b00)
-//     begin
-        
-//     end
-// end
+assign f_addr_err_if = (f_pc[1:0] != 2'b00) ;
 
 
 assign d_op          = d_instr[31:26] ;

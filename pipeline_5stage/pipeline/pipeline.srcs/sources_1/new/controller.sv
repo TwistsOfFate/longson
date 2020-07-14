@@ -1,64 +1,74 @@
 module controller(
     
-     input  logic       clk               , 
-     input  logic       resetn            ,
-     input  logic [5:0] d_op              , 
-     input  logic [5:0] d_funct           ,
-     input  logic [4:0] d_branchfunct     ,
-     input  logic       e_flush           ,
+    input  logic       clk               , 
+    input  logic       resetn            ,
+    
+    input  logic [5:0] d_op              , 
+    input  logic [5:0] d_funct           ,
+    input  logic [4:0] d_branchfunct     ,
+    input  logic       e_flush           ,
      
-     input  logic       d_equal           ,
-     input  logic       d_g0              ,
-     input  logic       d_e0              , 
+    input  logic       d_equal           ,
+    input  logic       d_g0              ,
+    input  logic       d_e0              , 
      
-     output logic       e_memtoreg        , 
-     output logic       m_memtoreg        , 
-     output logic       w_memtoreg        , 
+    output logic       e_memtoreg        , 
+    output logic       m_memtoreg        , 
+    output logic       w_memtoreg        , 
      
-     output logic       e_regwrite        , 
-     output logic       m_regwrite        , 
-     output logic       w_regwrite        ,
+    output logic       e_regwrite        , 
+    output logic       m_regwrite        , 
+    output logic       w_regwrite        ,
       
-     output logic       d_pcsrc           , 
-     output logic       e_regdst          , 
+    output logic       d_pcsrc           , 
+    output logic [1:0] e_regdst          , //00rt 01rd 10r31
      
-     output logic       m_memwrite        , 
+    output logic       m_memreq          , 
+    output logic       m_memwr           ,
      
-     output logic       d_isbranch        ,
-     output logic [2:0] d_branch          , 
+    output logic       d_isbranch        ,
+    output logic [2:0] d_branch          , 
      
-     output logic       d_isjump          ,
-     output logic [1:0] d_jump            , 
+    output logic       d_isjump          ,
+    output logic [1:0] d_jump            , 
      
-     output logic [2:0] e_alu_func        , 
-     output logic [1:0] e_sft_func        , 
+    output logic [2:0] e_alu_func        , 
+    output logic [1:0] e_sft_func        , 
      
-     output logic       e_imm_sign        , 
-     output logic       e_mul_sign        , 
-     output logic       e_div_sign        , 
+    output logic       e_imm_sign        , 
+    output logic       e_mul_sign        , 
+    output logic       e_div_sign        , 
      
-     output logic       e_intovf_en       , 
-     output logic       e_out_sel         , 
+    output logic       e_intovf_en       , 
+    output logic [1:0] e_out_sel         , 
      
-     output logic       e_alu_srcb_sel_rt , 
-     output logic       e_sft_srcb_sel_rs ,
+    output logic       e_alu_srcb_sel_rt , 
+    output logic       e_sft_srcb_sel_rs ,
      
-     output logic       w_writer31          
+    output logic       m_link            , // +8
+    output logic       m_reserved_instr  ,
+    output logic       m_break           ,
+    output logic       m_syscall         ,
+    output logic       m_rdata_sign                            
      
     );
     
-logic        d_memtoreg, d_regwrite, d_memwrite, e_memwrite, d_regdst, d_regwrite ;
+logic        d_memtoreg, d_regwrite, d_memreq, e_memreq, d_memwr, e_memwr,  d_regdst, d_regwrite ;
 
 logic [ 2:0] d_alu_func ;
 logic [ 1:0] d_sft_func ; 
-logic        d_imm_sign, d_mul_sign, d_div_sign, d_intovf_en, d_out_sel, d_alu_srcb_sel_rt, d_sft_srcb_sel_rs ;
-logic [22:0] controls  ;
+logic        d_imm_sign, d_mul_sign, d_div_sign, d_intovf_en, d_alu_srcb_sel_rt, d_sft_srcb_sel_rs ;
+logic [ 1:0] d_out_sel ;
+logic [23:0] controls  ;
+logic        d_link, e_link ;
+logic        d_reserved_instr, e_reserved_instr ;
+logic        d_break, e_break ;
+logic        d_syscall, e_syscall ;
+logic        d_rdata_sign, e_rdata_sign ;
 
 logic [ 7:0] branch ;
 
-logic        d_writer31, e_writer31, m_writer31 ;
-
-assign {d_memtoreg, d_regwrite, d_regdst, d_memwrite, d_isbranch, d_branch, d_jump, d_alu_func, d_sft_func, d_imm_sign, d_mul_sign, d_div_sign, d_intovf_en, d_out_sel, d_alu_srcb_sel_rt, d_sft_srcb_sel_rs, d_writer31} = controls ;
+// assign {d_memtoreg, d_regwrite, d_regdst, d_memreq, d_memwr , d_isbranch, d_branch, d_jump, d_alu_func, d_sft_func, d_imm_sign, d_mul_sign, d_div_sign, d_intovf_en, d_out_sel, d_alu_srcb_sel_rt, d_sft_srcb_sel_rs, d_link} = controls ;
 
 always@(posedge clk)
 begin
@@ -119,6 +129,11 @@ begin
                     controls <= ;
                 6'b010011: //MTLO
                     controls <= ;
+                6'b001101: //BREAK
+
+                6'b001100:
+
+
             endcase                                           
         end
         
@@ -180,10 +195,27 @@ begin
         6'b101001://SH
             controls <= ;
         6'b101011://SW
-            controls <= ;                                
+            controls <= ;   
+
+        default:
+
        
     endcase    
 end
+
+assign d_link = ((d_op == 6'b000001) && (d_branchfunct == 5'b10001)) //BGEZAL
+        ||((d_op == 6'b000001) && (d_branchfunct == 5'b10000))   //BLTZAL
+        ||(d_op == 6'b000011) || ((d_op == 6'b000000) && (d_funct == 6'b001001 )) ;//JAL,JALR
+
+assign d_isbranch = ((d_op == 6'b000100) || (d_op == 6'b000101) || (d_op == 6'b000001)
+        || (d_op == 6'b000111) || (d_op == 6'b000110)) ;
+
+assign d_isjump =
+
+
+
+
+
 
 
 
@@ -196,11 +228,47 @@ assign branch[5] = (d_branch == 3'b101) && (!d_g0 && !d_e0) && d_isbranch ;
 assign branch[6] = (d_branch == 3'b110) && (d_g0 | d_e0) && d_isbranch ;
 assign branch[7] = (d_branch == 3'b111) && (!d_g0 && !d_e0) && d_isbranch ;
 
-assign d_pcsrc = |branch ;    
-    
-    
-    
-    
-    
+assign d_pcsrc = |branch ; 
+
+
+
+floprc #(24) regE(
+    .clk(clk) ,
+    .reset(resetn) ,
+    .clear(e_flush) ,
+
+    .d({d_memtoreg, d_regwrite, d_regdst, d_memreq, d_memwr, 
+    d_alu_func, d_sft_func, d_imm_sign, d_mul_sign, d_div_sign, 
+    d_intovf_en, d_out_sel, d_alu_srcb_sel_rt, d_sft_srcb_sel_rs, 
+    d_link, d_reserved_instr, d_break, d_syscall, d_rdata_sign}) ,
+
+    .q({e_memtoreg, e_regwrite, e_regdst, e_memreq, e_memwr,
+    e_alu_func, e_sft_func, e_imm_sign, e_mul_sign, e_div_sign,
+    e_intovf_en, e_out_sel, e_alu_srcb_sel_rt, e_sft_srcb_sel_rs,
+    e_link, e_reserved_instr, e_break, e_syscall, e_rdata_sign}) 
+);
+
+flopr  #(9) regM(
+    .clk(clk) ,
+    .reset(resetn) ,
+
+    .d({e_memtoreg, e_regwrite, e_memreq, e_memwr, e_link, 
+    e_reserved_instr, e_break, e_syscall, e_rdata_sign}) ,
+
+    .q({m_memtoreg, m_regwrite, m_memreq, m_memwr, m_link, 
+    m_reserved_instr, m_break, m_syscall, m_rdata_sign}) 
+);
+
+flopr  #(2) regW(
+    .clk(clk) ,
+    .reset(resetn) ,
+
+    .d({m_regwrite, e_memtoreg}) ,
+    .q({w_regwrite, w_memtoreg}) 
+);
+
+
+
+
     
 endmodule
