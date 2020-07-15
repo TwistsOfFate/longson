@@ -23,18 +23,14 @@ module mycpu(
     
     input  logic  [31:0] data_rdata   ,
     input  logic         data_addr_ok ,
-    input  logic         data_data_ok 
-    );
+    input  logic         data_data_ok ,
     
-initial
-begin
-    inst_req   = 1'b1       ;
-    inst_wr    = 1'b0       ;
-    inst_size  = 2'b10      ;
-    inst_addr  = {32{1'b0}} ;
-    inst_wdata = {32{1'bx}} ;
-end    
-    
+    //debug signals
+    output logic [31:0]  debug_wb_pc	,
+	output logic         debug_wb_rf_wen,
+	output logic [ 4:0]  debug_wb_rf_wnum,
+	output logic [31:0]  debug_wb_rf_wdata
+    ); 
     
 logic [ 5:0] d_op              ; // instr[31:26], instr[5:0]
 logic [ 5:0] d_funct ;
@@ -56,6 +52,7 @@ logic [ 1:0] e_regdst          ;
 //--------------------------------------------------------------------------
 logic        m_memreq          ;   
 logic        m_memwr           ; 
+logic [ 1:0] m_size			   ;
 //--------------------------------------------------------------------------
 logic        d_isbranch        ;
 logic [ 2:0] d_branch          ; // 000-111 stands for 8 kinds of branches 
@@ -89,10 +86,7 @@ logic        d_equal           ;
 logic        d_g0              ;
 logic        d_e0              ;
 //--------------------------------------------------------------------------
-logic [31:0] debug_wb_pc       ;
-logic        debug_wb_rf_wen   ;
-logic [ 4:0] debug_wb_rf_wnum  ;
-logic [31:0] debug_wb_rf_wdata ;
+
 
 
 
@@ -168,6 +162,10 @@ datapath dp(
     .d_pcsrc            (d_pcsrc)           ,
     .e_regdst           (e_regdst)          ,
     
+    .m_memreq          	(m_memreq)			, 
+    .m_memwr           	(m_memwr)			,
+    .m_size				(m_size)			,
+    
     .d_isbranch         (d_isbranch)        ,
     .d_branch           (d_branch)          ,
     
@@ -204,7 +202,18 @@ datapath dp(
     .d_equal            (d_equal)           ,
     .d_g0               (d_g0)              ,
     .d_e0               (d_e0)              ,
-
+    
+    //dmem sram-like interface
+	.m_data_req			(data_req)			,
+    .m_data_wr			(data_wr)			,
+    .m_data_size		(data_size)			,
+    .m_data_addr		(data_addr)			,
+    .m_data_wdata		(data_wdata)		,
+    .m_data_rdata		(data_rdata)		,
+    .m_data_addr_ok		(data_addr_ok)		,
+    .m_data_data_ok		(data_data_ok)		,
+    
+	//debug
     .debug_wb_pc        (debug_wb_pc)       ,
     .debug_wb_rf_wen    (debug_wb_rf_wen)   ,
     .debug_wb_rf_wnum   (debug_wb_rf_wnum)  ,
@@ -212,24 +221,24 @@ datapath dp(
  
 ); 
 
-// send signal module
+//instruction fetch send signal module
 always @(posedge clk)
 begin    
     if(inst_addr_ok == 1)
     begin
-        inst_req   = 1'bx  ;
-        inst_wr    = 1'bx  ;
-        inst_size  = 2'bxx ;
-        inst_addr  = {32{1'bx}} ;
-        inst_wdata = {32{1'bx}} ;
+        inst_req   <= 1'b0  ;
+        inst_wr    <= 1'bx  ;
+        inst_size  <= 2'bxx ;
+        inst_addr  <= {32{1'bx}} ;
+        inst_wdata <= {32{1'bx}} ;
     end
     else if(inst_data_ok == 1)
     begin
-        inst_req  = 1'b1 ;
-        inst_wr   = 1'b0 ; // I think we just need read the instr now.
-        inst_size = 2'b10 ; // 4 bytes per instr
-        inst_addr = next_pc ;
-        inst_wdata = {32{1'bx}} ;// we needn't care about wdata 
+        inst_req  <= 1'b1 ;
+        inst_wr   <= 1'b0 ; // I think we just need read the instr now.
+        inst_size <= 2'b10 ; // 4 bytes per instr
+        inst_addr <= next_pc ;
+        inst_wdata <= {32{1'bx}} ;// we needn't care about wdata 
     end
     else
     begin
@@ -240,7 +249,7 @@ begin
         inst_wdata <= inst_wdata ;
     end
     
-    if(inst_addr_ok == 0 && inst_addr_ok == 0)
+    if(inst_data_ok == 0)
         insert_stall = 1 ; 
     else
         insert_stall = 0 ; 
