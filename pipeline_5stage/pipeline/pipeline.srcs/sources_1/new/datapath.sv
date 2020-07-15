@@ -178,9 +178,9 @@ hazard hz(
 
 regfile rf(
     .clk           (clk)         ,
-    .reset         (~resetn)      ,
+    .reset         (~resetn)     ,
     .regwrite_en   (regwriteW)   ,
-    .regwrite_addr (w_reg_waddr)   ,
+    .regwrite_addr (w_reg_waddr) ,
     .regwrite_data (w_reg_wdata) ,
     .rs_addr       (d_rs)        ,
     .rt_addr       (d_rt)        ,
