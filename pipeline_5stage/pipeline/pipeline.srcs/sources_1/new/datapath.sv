@@ -138,7 +138,7 @@ regfile rf(
     .reset         (resetn)      ,
     .regwrite_en   (regwriteW)   ,
     .regwrite_addr (writeregW)   ,
-    .regwrite_data (w_reg_wdata) ,
+    .regwrite_data (w_reg_wdata) , //mux2
     .rs_addr       (d_rs)        ,
     .rt_addr       (d_rt)        ,
     .rs_data       (d_rsdata)    ,

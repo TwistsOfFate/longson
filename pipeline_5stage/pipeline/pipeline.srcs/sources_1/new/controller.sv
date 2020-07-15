@@ -6,6 +6,7 @@ module controller(
     input  logic [5:0] d_op              , 
     input  logic [5:0] d_funct           ,
     input  logic [4:0] d_branchfunct     ,
+    input  logic [4:0] d_c0funct         ,
     input  logic       e_flush           ,
      
     input  logic       d_equal           ,
@@ -21,7 +22,7 @@ module controller(
     output logic       w_regwrite        ,
       
     output logic       d_pcsrc           , //^
-    output logic [1:0] e_regdst          , //00rt 01rd 10r31
+    output logic [1:0] e_regdst          , //^  00rt 01rd 10r31
      
     output logic       m_memreq          ,//^
     output logic       m_memwr           ,//^
@@ -48,16 +49,22 @@ module controller(
     output logic       w_link            ,//^ +8
 
     output logic [1:0] m_size            ,//^
-    output logic       m_reserved_instr  ,
+    output logic       m_reserved_instr  ,//^
     output logic       m_break           ,//^
     output logic       m_syscall         ,//^
+    output logic       m_eret            ,
+
     output logic       m_rdata_sign      ,//^
 
     output logic [1:0] w_hi_sel          ,//^
     output logic [1:0] w_lo_sel          ,//^
 
     output logic       w_hi_wen          ,//^
-    output logic       w_lo_wen          //^
+    output logic       w_lo_wen          ,//^
+
+    output logic       w_cp0_sel         ,
+    output logic       w_cp0_wen             
+
 
                                
      
@@ -80,6 +87,9 @@ logic [ 1:0] d_lo_sel, e_lo_sel, m_lo_sel ;
 logic [ 1:0] d_size, e_size ;
 logic        d_hi_wen, e_hi_wen, m_hi_wen ;
 logic        d_lo_wen, e_lo_wen, m_lo_wen ;
+logic        d_eret, e_eret ;
+logic        d_cp0_sel, e_cp0_sel, m_cp0_sel ;
+logic        d_cp0_wen, e_cp0_wen, m_cp0_wen ;
 
 logic [ 2:0] branch ;
 
@@ -99,6 +109,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end    
                 6'b100001: //ADDU
                 begin
@@ -107,6 +118,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b100010: //SUB
                 begin
@@ -115,6 +127,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b100011: //SUBU
                 begin
@@ -123,6 +136,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b101010: //SLT
                 begin
@@ -131,6 +145,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b101011: //SLTU
                 begin
@@ -139,6 +154,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b011010: //DIV
                 begin
@@ -147,6 +163,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b011011: //DIVU
                 begin
@@ -155,6 +172,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b011000: //MULT
                 begin
@@ -163,6 +181,7 @@ begin
                     d_out_sel <= 2'b00 ; 
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b011001: //MULTU
                 begin
@@ -171,6 +190,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b100100: //AND
                 begin
@@ -179,6 +199,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b100111: //NOR
                 begin
@@ -187,6 +208,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b100101: //OR
                 begin
@@ -195,6 +217,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b100110: //XOR
                 begin
@@ -203,6 +226,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b000100: //SLLV
                 begin
@@ -211,6 +235,7 @@ begin
                     d_out_sel <= 2'b01 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b000000: //SLL
                 begin
@@ -219,6 +244,7 @@ begin
                     d_out_sel <= 2'b01 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b000111: //SRAV
                 begin
@@ -227,6 +253,7 @@ begin
                     d_out_sel <= 2'b01 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b000011: //SRA
                 begin
@@ -235,6 +262,7 @@ begin
                     d_out_sel <= 2'b01 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b000110: //SRLV
                 begin
@@ -243,6 +271,7 @@ begin
                     d_out_sel <= 2'b01 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b000010: //SRL
                 begin
@@ -251,6 +280,7 @@ begin
                     d_out_sel <= 2'b01 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b001000: //JR
                 begin
@@ -259,6 +289,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b0 ;
                     d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b001001: //JALR
                 begin
@@ -267,6 +298,7 @@ begin
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
                     d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b010000: //MFHI
                 begin
@@ -274,7 +306,8 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b10 ;
                     d_regwrite <= 1'b1 ;
-                    d_regdst <= 2'b00 ;
+                    d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b010010: //MFLO
                 begin
@@ -282,6 +315,8 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b11 ;
                     d_regwrite <= 1'b1 ;
+                    d_regdst <= 2'b01 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b010001: //MTHI
                 begin
@@ -289,6 +324,8 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b0 ;
+                    d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b010011: //MTLO
                 begin
@@ -296,6 +333,8 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b0 ;
+                    d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b001101: //BREAK
                 begin
@@ -303,6 +342,8 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b0 ;
+                    d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 6'b001100://SYSCALL
                 begin
@@ -310,6 +351,17 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b0 ;
+                    d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
+                end
+                default:
+                begin
+                    d_alu_srcb_sel_rt <= 0 ;
+                    d_sft_srcb_sel_rs <= 0 ;
+                    d_out_sel <= 2'b00 ;
+                    d_regwrite <= 1'b0 ;
+                    d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b1 ;
                 end
             endcase                                           
         end
@@ -320,6 +372,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b01 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b001001://ADDIU
         begin
@@ -327,6 +381,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b01 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b001010://SLTI
         begin
@@ -334,6 +390,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b01 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b001011://SLTIU
         begin
@@ -341,6 +399,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b01 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b001100://ANDI
         begin
@@ -348,6 +408,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b01 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b001111://LUI
         begin
@@ -355,6 +417,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b10 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b001101://ORI
         begin
@@ -362,6 +426,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b01 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b001110://XORI
         begin
@@ -369,6 +435,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b01 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b000100://BEQ
         begin
@@ -376,6 +444,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b000101://BNE
         begin
@@ -383,6 +453,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b000001:
         begin 
@@ -393,6 +465,8 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b0 ;
+                    d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 5'b00000: //BLTZ
                 begin
@@ -400,6 +474,8 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b0 ;
+                    d_regdst <= 2'b00 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 5'b10001: //BGEZAL
                 begin
@@ -407,6 +483,8 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
+                    d_regdst <= 2'b10 ;
+                    d_reserved_instr <= 1'b0 ;
                 end
                 5'b10000: //BLTZAL
                 begin
@@ -414,6 +492,17 @@ begin
                     d_sft_srcb_sel_rs <= 0 ;
                     d_out_sel <= 2'b00 ;
                     d_regwrite <= 1'b1 ;
+                    d_regdst <= 2'b10 ;
+                    d_reserved_instr <= 1'b0 ;
+                end
+                default:
+                begin
+                    d_alu_srcb_sel_rt <= 0 ;
+                    d_sft_srcb_sel_rs <= 0 ;
+                    d_out_sel <= 2'b00 ;
+                    d_regwrite <= 1'b1 ;
+                    d_regdst <= 2'b10 ;
+                    d_reserved_instr <= 1'b1 ;
                 end
             endcase                      
         end    
@@ -423,6 +512,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b000110://BLEZ
         begin
@@ -430,6 +521,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b000001://BLTZ
         begin
@@ -437,6 +530,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b000010: //J
         begin
@@ -444,6 +539,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b000011: //JAL
         begin
@@ -451,6 +548,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b10 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b100000://LB
         begin
@@ -458,6 +557,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b100100://LBU
         begin
@@ -465,6 +566,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b100001://LH
         begin
@@ -472,6 +575,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b100101://LHU
         begin
@@ -479,6 +584,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b100011://LW
         begin
@@ -486,6 +593,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b1 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b101000://SB
         begin
@@ -493,6 +602,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b101001://SH
         begin
@@ -500,6 +611,8 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
         6'b101011://SW
         begin
@@ -507,13 +620,58 @@ begin
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b0 ;
         end
+
+        6'b010000:
+        begin
+            if(d_funct == 6'b011000)//ERET
+            begin
+                d_alu_srcb_sel_rt <= 0 ;
+                d_sft_srcb_sel_rs <= 0 ;
+                d_out_sel <= 2'b00 ;
+                d_regwrite <= 1'b0 ;
+                d_regdst <= 2'b00 ;
+                d_reserved_instr <= 1'b0 ;
+            end
+            else if(d_c0funct == 5'b00000)//MFC0
+            begin
+                d_alu_srcb_sel_rt <= 0 ;
+                d_sft_srcb_sel_rs <= 0 ;
+                d_out_sel <= 2'b00 ;
+                d_regwrite <= 1'b1 ;
+                d_regdst <= 2'b00 ;
+                d_reserved_instr <= 1'b0 ;
+            end
+            else if(d_c0funct == 5'b00100)//MTC0
+            begin
+                d_alu_srcb_sel_rt <= 0 ;
+                d_sft_srcb_sel_rs <= 0 ;
+                d_out_sel <= 2'b00 ;
+                d_regwrite <= 1'b0 ;
+                d_regdst <= 2'b00 ;
+                d_reserved_instr <= 1'b0 ;
+            end
+            else
+            begin
+                d_alu_srcb_sel_rt <= 0 ;
+                d_sft_srcb_sel_rs <= 0 ;
+                d_out_sel <= 2'b00 ;
+                d_regwrite <= 1'b0 ;
+                d_regdst <= 2'b00 ;
+                d_reserved_instr <= 1'b1 ;
+            end
+        end
+
         default:
         begin
             d_alu_srcb_sel_rt <= 0 ;
             d_sft_srcb_sel_rs <= 0 ;
             d_out_sel <= 2'b00 ;
             d_regwrite <= 1'b0 ;
+            d_regdst <= 2'b00 ;
+            d_reserved_instr <= 1'b1 ;
         end
 
        
@@ -668,6 +826,10 @@ assign d_syscall = (d_op == 6'b000000 && d_funct == 6'b001100) ;
 assign d_rdata_sign = (d_op == 6'b100000 || d_op == 6'b100001 || d_op == 6'b100011) ;
 assign d_memtoreg = (d_op == 6'b100000 || d_op == 6'b100001 || d_op == 6'b100011 || d_op == 6'b100100 || d_op == 6'b100101) ;
 
+assign d_eret = (d_op == 6'b010000 && d_funct == 6'b011000) ;
+
+assign w_cp0_sel = (d_op == 6'b010000 && d_c0funct == 5'b00000) ;
+assign w_cp0_wen = (d_op == 6'b010000 && d_c0funct == 5'b00100) ;
 
 
 
@@ -684,7 +846,7 @@ assign d_pcsrc = |branch ;
 
 
 
-floprc #(32) regE(
+floprc #(34) regE(
     .clk(clk) ,
     .reset(resetn) ,
     .clear(e_flush) ,
@@ -693,38 +855,34 @@ floprc #(32) regE(
     d_alu_func, d_sft_func, d_imm_sign, d_mul_sign, d_div_sign, 
     d_intovf_en, d_out_sel, d_alu_srcb_sel_rt, d_sft_srcb_sel_rs, 
     d_link, d_reserved_instr, d_break, d_syscall, d_rdata_sign, 
-    d_hi_sel, d_lo_sel, d_size, d_hi_wen, d_lo_wen}) ,
+    d_hi_sel, d_lo_sel, d_size, d_hi_wen, d_lo_wen, d_cp0_sel, d_cp0_wen}) ,
 
     .q({e_memtoreg, e_regwrite, e_regdst, e_memreq, e_memwr,
     e_alu_func, e_sft_func, e_imm_sign, e_mul_sign, e_div_sign,
     e_intovf_en, e_out_sel, e_alu_srcb_sel_rt, e_sft_srcb_sel_rs,
     e_link, e_reserved_instr, e_break, e_syscall, e_rdata_sign, 
-    e_hi_sel, e_lo_sel, e_size, e_hi_wen, e_lo_wen}) 
+    e_hi_sel, e_lo_sel, e_size, e_hi_wen, e_lo_wen, e_cp0_sel, e_cp0_wen}) 
 );
 
-flopr  #(17) regM(
+flopr  #(19) regM(
     .clk(clk) ,
     .reset(resetn) ,
 
     .d({e_memtoreg, e_regwrite, e_memreq, e_memwr, e_link, 
     e_reserved_instr, e_break, e_syscall, e_rdata_sign, 
-    e_hi_sel, e_lo_sel, e_size, e_hi_wen, e_lo_wen}) ,
+    e_hi_sel, e_lo_sel, e_size, e_hi_wen, e_lo_wen, e_cp0_sel, e_cp0_wen}) ,
 
     .q({m_memtoreg, m_regwrite, m_memreq, m_memwr, m_link, 
     m_reserved_instr, m_break, m_syscall, m_rdata_sign, 
-    m_hi_sel, m_lo_sel, m_size, m_hi_wen, m_lo_wen}) 
+    m_hi_sel, m_lo_sel, m_size, m_hi_wen, m_lo_wen, m_cp0_sel, m_cp0_wen}) 
 );
 
-flopr  #(9) regW(
+flopr  #(11) regW(
     .clk(clk) ,
     .reset(resetn) ,
 
-    .d({m_regwrite, m_memtoreg, m_link, m_hi_sel, m_lo_sel, m_hi_wen, m_lo_wen}) ,
-    .q({w_regwrite, w_memtoreg, w_link, w_hi_sel, w_lo_sel, w_hi_wen, w_lo_wen}) 
+    .d({m_regwrite, m_memtoreg, m_link, m_hi_sel, m_lo_sel, m_hi_wen, m_lo_wen, m_cp0_sel, m_cp0_wen}) ,
+    .q({w_regwrite, w_memtoreg, w_link, w_hi_sel, w_lo_sel, w_hi_wen, w_lo_wen, w_cp0_sel, w_cp0_wen}) 
 );
 
-
-
-
-    
 endmodule
